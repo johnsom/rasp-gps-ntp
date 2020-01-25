@@ -1,0 +1,7 @@
+The ublox6-gps-i2c.c is a copy (for convenience), unmodified, of the file
+originally found here:
+https://github.com/antmicro/tx2-deep-learning-kit-bsp/blob/master/kernel/kernel-4.4/drivers/tty/serial/ublox6-gps-i2c.c
+
+Thank you to Felipe F. Tonello and NVIDIA CORPORATION for creating, updating,
+and sharing this driver under the GPL. Hopefully this will be included in the
+mainline kernel in the future.

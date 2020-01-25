@@ -1,0 +1,1 @@
+SUBSYSTEM=="module", DEVPATH=="/module/ublox6_gps_i2c", ACTION=="add", RUN+="/bin/sh -c '/usr/bin/echo ublox_gps 0x42 > /sys/bus/i2c/devices/i2c-3/new_device'"

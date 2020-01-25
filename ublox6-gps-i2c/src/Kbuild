@@ -1,0 +1,1 @@
+obj-m  := ublox6-gps-i2c.o
