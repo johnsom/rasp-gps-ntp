@@ -992,7 +992,7 @@ configure the u-blox module.
    .. code-block:: bash
 
       sudo mkdir /usr/src/ublox6-gps-i2c-1.0
-      sudo cp -a ublox-gps-i2c/* /usr/src/ublox6-gps-i2c-1.0
+      sudo cp -a ublox6-gps-i2c/* /usr/src/ublox6-gps-i2c-1.0
 
 2. Add the module to dkms so that it will be built for future kernel updates:
 
@@ -1066,20 +1066,176 @@ configure the u-blox module.
 
         sudo systemctl restart ntpsec
 
+Raspberry Pi 4
+**************
+
+Someone was kind enough to gift me a Raspberry Pi 4 (Thank you again!). Here is what I have learned about the Raspberry Pi 4 so far:
+
+U-boot
+------
+
+U-boot on Ubuntu 19.10 (eoan) is broken. You cannot do the
+"setenv bootdelay -2" trick to stop the GPS serial port from aborting the
+boot sequence. This was caused by two issues: my USB keyboard is not
+detected by u-boot and the saved environment file is corrupt.
+
+I worked around the USB keyboard issue by using my Raspberry Pi 3 serial port
+to access the u-boot serial console on the Raspberry Pi 4.
+
+The issue with the corrupt environment file was a bigger problem. Not only
+did it save out without my boot delay change, but it would not load at boot.
+I later found out there is an issue in this version with the size of the
+u-boot code and the environment data.
+
+In the end, I resorted to building a custom version of u-boot that sets the
+autoboot delay and stop strings in u-boot. It would be super nice if Ubuntu
+set these by default in the u-boot-rpi package.
+
+1. Download the source files by searching for the correct u-boot-rpi package
+   on https://packages.ubuntu.com. There are three files:
+   u-boot_2019.07+dfsg-1ubuntu3.dsc, u-boot_2019.07+dfsg.orig.tar.xz, and
+   u-boot_2019.07+dfsg-1ubuntu3.debian.tar.xz.
+
+2. Unpack the u-boot_2019.07+dfsg.orig.tar.xz file:
+
+   .. code-block:: bash
+
+      tar xJf u-boot_2019.07+dfsg.orig.tar.xz
+
+3. Go into the new u-boot-2019.07 directory and unpack the debian directory.
+
+   .. code-block:: bash
+
+      cd u-boot-2019.07
+      tar xJf ../u-boot_2019.07+dfsg-1ubuntu3.debian.tar.xz
+
+4. Make the required changes to enable the delay and stop strings:
+
+   .. code-block:: bash
+
+      echo "#define CONFIG_AUTOBOOT_KEYED" >> include/configs/rpi.h
+      echo "#define CONFIG_AUTOBOOT_DELAY_STR \"delay\"" >> include/configs/rpi.h
+      echo "#define CONFIG_AUTOBOOT_STOP_STR \"stop\"" >> include/configs/rpi.h
+
+5. Update the package to include a new patch file for the changes:
+
+   .. code-block:: bash
+
+      dpkg-source --commit
+
+   This will ask for a patch name, I used "rpi4-autoboot-strings". It will then
+   open your favorite editor (vim right?) where you can put in a description
+   for the patch. Update as you see fit since you will not be distributing it.
+
+6. Build the new u-boot packages:
+
+   .. code-block:: bash
+
+       dpkg-buildpackage -us -uc
+
+   This will take a long time as it rebuilds all of the u-boot packages.
+
+7. Install the newly built package:
+
+   .. code-block:: bash
+
+      sudo dpkg --install ../u-boot-rpi_2019.07+dfsg-1ubuntu3_arm64.deb
+
+The u-blox DDC / |I2C| Device on Raspberry Pi 4
+-----------------------------------------------
+
+I am sad to report that the |I2C| bus clock stretching issue that the Raspberry
+Pi 3 model B suffers from is still present on the Raspberry Pi 4. I will
+continue to use the software/GPIO |I2C| driver on the Raspberry Pi 4.
+
+Raspberry Pi 4 and IEEE 1588 Hardware Timestamping
+---------------------------------------------------
+
+Unfortunately the Raspberry Pi 4 ethernet chip does not support IEEE 1588
+hardware timestamping. The ethtool output:
+
+.. code-block:: bash
+
+   $ ethtool -T eth0
+   Time stamping parameters for eth0:
+   Capabilities:
+        software-transmit     (SOF_TIMESTAMPING_TX_SOFTWARE)
+        software-receive      (SOF_TIMESTAMPING_RX_SOFTWARE)
+        software-system-clock (SOF_TIMESTAMPING_SOFTWARE)
+   PTP Hardware Clock: none
+   Hardware Transmit Timestamp Modes: none
+   Hardware Receive Filter Modes: none
+
+For those of you that might be curious about the other offloading capability
+on the Raspberry Pi 4, here is default offload settings on Ubuntu 19.10:
+
+.. code-block:: bash
+
+   $ ethtool -k eth0
+   Features for eth0:
+   rx-checksumming: off
+   tx-checksumming: off
+        tx-checksum-ipv4: off
+        tx-checksum-ip-generic: off [fixed]
+        tx-checksum-ipv6: off
+        tx-checksum-fcoe-crc: off [fixed]
+        tx-checksum-sctp: off [fixed]
+   scatter-gather: off
+        tx-scatter-gather: off
+        tx-scatter-gather-fraglist: off [fixed]
+   tcp-segmentation-offload: off
+        tx-tcp-segmentation: off [fixed]
+        tx-tcp-ecn-segmentation: off [fixed]
+        tx-tcp-mangleid-segmentation: off [fixed]
+        tx-tcp6-segmentation: off [fixed]
+   udp-fragmentation-offload: off
+   generic-segmentation-offload: off [requested on]
+   generic-receive-offload: on
+   large-receive-offload: off [fixed]
+   rx-vlan-offload: off [fixed]
+   tx-vlan-offload: off [fixed]
+   ntuple-filters: off [fixed]
+   receive-hashing: off [fixed]
+   highdma: off [fixed]
+   rx-vlan-filter: off [fixed]
+   vlan-challenged: off [fixed]
+   tx-lockless: off [fixed]
+   netns-local: off [fixed]
+   tx-gso-robust: off [fixed]
+   tx-fcoe-segmentation: off [fixed]
+   tx-gre-segmentation: off [fixed]
+   tx-gre-csum-segmentation: off [fixed]
+   tx-ipxip4-segmentation: off [fixed]
+   tx-ipxip6-segmentation: off [fixed]
+   tx-udp_tnl-segmentation: off [fixed]
+   tx-udp_tnl-csum-segmentation: off [fixed]
+   tx-gso-partial: off [fixed]
+   tx-sctp-segmentation: off [fixed]
+   tx-esp-segmentation: off [fixed]
+   tx-udp-segmentation: off [fixed]
+   fcoe-mtu: off [fixed]
+   tx-nocache-copy: off
+   loopback: off [fixed]
+   rx-fcs: off [fixed]
+   rx-all: off [fixed]
+   tx-vlan-stag-hw-insert: off [fixed]
+   rx-vlan-stag-hw-parse: off [fixed]
+   rx-vlan-stag-filter: off [fixed]
+   l2-fwd-offload: off [fixed]
+   hw-tc-offload: off [fixed]
+   esp-hw-offload: off [fixed]
+   esp-tx-csum-hw-offload: off [fixed]
+   rx-udp_tunnel-port-offload: off [fixed]
+   tls-hw-tx-offload: off [fixed]
+   tls-hw-rx-offload: off [fixed]
+   rx-gro-hw: off [fixed]
+   tls-hw-record: off [fixed]
+
 Future Work
 ***********
 
 I would like to try setting this up on the Raspberry Pi 4 platform.
-Specifically, to see if I get additional stability out of the 4. I would also
-like to see if the 4 network interface supports the IEEE 1588 hardware time
-stamping that can be used for Precision Time Protocol (PTP). I was unable to
-find this information searching. If it does not support hardware timestamping
-there are USB gigabit ethernet adapters that in theory support it.
-
-I also want to see if the Raspberry Pi 4 resolves the |I2C| bus clock
-stretching issue that the Raspberry Pi 3 model B suffers from. On the Raspberry
-Pi 3 I had to switch to using the software/GPIO |I2C| driver as the 
-u-blox CAM-M8C uses |I2C| clock stretching.
+Specifically, to see if I get additional stability out of the 4.
 
 Beyond the Raspberry Pi 4 interests I would like to compare my results on the
 u-blox CAM-M8C with other u-blox modules.
