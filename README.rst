@@ -955,6 +955,75 @@ baud rate of the UART1 interface on the u-blox module:
 
      sudo sed -i 's/u-blox-rst.cfg/u-blox-rst.cfg --speed 115200/g' /etc/udev/rules.d/60-u-blox-cfg-loader-rst.rules
 
+Setting up a watchdog timer (Optional)
+**************************************
+
+The Raspberry Pi includes a hardware watchdog device that can be used to
+reset the Raspberry Pi should the software freeze (such as a kernel panic).
+
+1. Enable the watchdog hardware device:
+
+   * Edit the /boot/firmware/syscfg.txt
+
+     * Add "dtparam=watchdog=on". On reboot, this will enable the watchdog
+       device.
+
+2. Install the watchdog system service:
+
+   .. code-block:: bash
+
+      sudo apt-get update
+      sudo apt-get install watchdog
+
+3. Configure the watchdog service:
+
+   * Edit the /etc/watchdog.conf file
+
+     * Add "watchdog-device = /dev/watchdog". This will set the location
+       of the hardware watchdog device file.
+     * Add "watchdog-timeout = 15". This sets the time, in seconds, the
+       hardware device will wait for an update before triggering a hardware
+       reset.
+     * Add "max-load-1 = 24". This is the one-minute load average threshold
+       at which the watchdog service will reboot the device. The one-minute
+       load average is the first "load average" number when you run the
+       "uptime" command. Twenty-four is a large number, approximately six times
+       the load a four core Raspberry Pi can normally process.
+     * Add "interface = eth0". This will cause the watchdog process to watch
+       the "eth0" network interface to make sure it is receiving traffic.
+     * Add "temperature-sensor = /sys/class/thermal/thermal_zone0/temp". This
+       is the file where the Raspberry Pi core temperature is reported. Note,
+       it is reported in thousandths of a degree Celsius.
+     * Add "max-temperature = 82". This sets the watchdog service temperature
+       threshold to eighty-two degrees Celsius. This is the temperature the
+       Raspberry Pi will start throttling the CPU.
+     * Add "min-memory = 25000". This sets a minimum available memory threshold
+       for the watchdog process. This value is in memory pages, which is 4096
+       on the Raspberry Pi (getconf PAGESIZE). A value of twenty-five thousand
+       will set a low memory threshold of one hundred megabytes of available
+       memory.
+
+4. Enable the watchdog service:
+
+   .. code-block:: bash
+
+      sudo systemctl enable watchdog
+
+5. Reboot the Raspberry Pi to enable the watchdog device:
+
+   .. code-block:: bash
+
+      sudo reboot
+
+6. Verify the watchdog service started successfully:
+
+   .. code-block:: bash
+
+      sudo systemctl status watchdog | less
+
+   The output should show that the service is active (running).
+
+
 Enabling the u-blox DDC / |I2C| Device (Optional)
 **********************************************************
 
