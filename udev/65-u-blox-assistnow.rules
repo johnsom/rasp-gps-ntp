@@ -1,0 +1,1 @@
+KERNEL=="ttyS0", ACTION=="add", RUN+="/usr/local/bin/u-blox-assistnow-loader.py --file /etc/u-blox-assistnow.conf --speed 115200 --port /dev/ttyAMA0"

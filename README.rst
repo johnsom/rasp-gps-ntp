@@ -113,6 +113,34 @@ you need may help extend the life of the card if write wear leveling is in use.
 Below I will make some recommendations about ways to reduce the write load
 for this use case.
 
+Update 2020 - Raspberry Pi 4
+----------------------------
+
+Someone was very kind by gifting me a Raspberry Pi 4 board. Thank you!
+I have created a update section below discussing what I have found with the
+Raspberry Pi 4.
+
+Update 2022 - OzzMaker BerryGPS-IMUv4
+-------------------------------------
+
+Another very kind person gifted me one of the OzzMaker BerryGPS-IMUv4 boards.
+Thank you!
+
+This is an update to the BerryGPS-IMUv3 which adds a Super Cap that allows the
+GPS module to maintain the ephemeris data for up to four hours if the module
+loses power. This means a faster time-to-first-fix if power is restored within
+the four hour window. After four hours the ephemeris data will be stale and
+should be refreshed or reacquired from the satellites.
+
+The BerryGPS-IMUv4 also has slightly different IMU sensors and QWIIC
+connectors.
+
+.. note::
+
+    When using the QWIIC connectors, the GPS is only available over |I2C|.
+
+The BerryGPS-IMUv4 is fully compatible with the BerryGPS-IMUv3 board.
+
 Soldering
 *********
 
@@ -867,7 +895,7 @@ I have included a simple python3 application that will load a u-center saved
 configuration file into a u-blox module called u-blox-cfg-loader.py. We can use
 this to configure the u-blox module when the Raspberry Pi boots.
 
-* Copy the u-blox-cfg-loader.py into /usr/local/bin on your Raspberry Pi.
+* Copy the u-blox-cfg-loader.py into /usr/local/bin on your Raspberry Pi:
 
   .. code-block:: bash
 
@@ -1135,6 +1163,75 @@ configure the u-blox module.
 
         sudo systemctl restart ntpsec
 
+u-blox Multi GNSS AssistNow Online (Optional)
+*********************************************
+
+The very kind person that gifted me the BerryGPS-IMUv4 board inquired about
+supporting u-blox Multi GNSS AssistNow to allow a quicker time-to-first-fix on
+startup. I was more than happy to add support for AssistNow to this project.
+
+After following these installation instructions, AssistNow will be used to
+load the almanac and ephemeris data into the u-blox module after the it is
+configured and the cold start is issued. In my testing, this dropped the
+time-to-first-fix to about two minutes when I enabled all of the data types
+and provided the receiver location settings.
+
+.. note::
+
+    If you are adding AssistNow support to an existing installation, please
+    update the u-blox-cfg-loader.py file to the current version in this
+    repository. I have added a delay after the cold start command to allow
+    the receiver to reset before we send it AssistNow data.
+
+The u-blox Multi GNSS AssistNow Online is a free service, but it does require
+a token to access the service. You can follow the instructions provided in the
+`AssistNow getting started <https://developer.thingstream.io/guides/location-services/assistnow-getting-started-guide>`_ guide to get your free token.
+
+.. note::
+
+    As the name implies, the AssistNow Online functionality requires your
+    Raspberry Pi to be able to make HTTPS connections to the u-blox servers.
+
+Installing the AssistNow Files
+------------------------------
+
+* Copy the u-blox-assistnow-loader.py into /usr/local/bin on your Raspberry Pi:
+
+  .. code-block:: bash
+
+     sudo cp -p u-blox-assistnow/u-blox-assistnow-loader.py /usr/local/bin
+
+* Copy the configuration file into /etc on your Raspberry Pi:
+
+  .. code-block:: bash
+
+     sudo cp -p u-blox-assistnow/u-blox-assistnow.conf /etc
+
+* Configure udev to run the u-blox-assistnow-loader.py on boot:
+
+  .. code-block:: bash
+
+     sudo cp -p udev/65-u-blox-assistnow.rules /etc/udev/rules.d
+
+Configuring the u-blox AssistNow Loader
+---------------------------------------
+
+At a minimum you must configure the **token** in the u-blox-assistnow.conf file.
+If this is not set, the u-blox AssistNow loader will skip the AssistNow data
+loading.
+
+If you know the exact position of the receiver, you can enable the "pos"
+datatype and fill in the position information in the configuration file.
+An easy way to get an accurate location is to run the receiver for a while and
+once is has established a stable location, connect to the receiver using the
+u-center application. Then, from the *Tools* menu, select *AssistNow Online*
+and *AssistNow Online, GNSS*. From the *Multiple GNSS AssistNow Online* window
+set *Reference Position* to *Manual* and click the *Use Current* button. You
+can then copy those values into the u-blox-assistnow.conf file.
+
+Once you have completed these steps, on the next reboot, the u-blox module will
+get AssistNow data loaded and the time-to-first-fix should be reduced.
+
 Raspberry Pi 4
 **************
 
@@ -1338,8 +1435,8 @@ Disclaimers
 * This document comes without any warranty of any kind.
 * Not intended for safety of life applications.
 * The code provided in this repository is licensed under the GNU General
-  Public License v3.0. See the included COPYING for terms.
-* This document is Copyright 2020 Michael Johnson
+  Public License v3.0. See the included LICENSE for terms.
+* This document is Copyright 2020-2022 Michael Johnson
 * This document is licensed under the Creative Commons Attribution-ShareAlike
   4.0 International Public License
 

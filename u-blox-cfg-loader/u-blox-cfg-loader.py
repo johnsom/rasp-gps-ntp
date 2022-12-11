@@ -17,6 +17,7 @@
 import argparse
 import serial
 import struct
+import time
 
 UBLOX_PREFIX = 'B5 62'
 
@@ -47,6 +48,10 @@ def main():
                 bytes_to_send = (bytearray.fromhex(UBLOX_PREFIX) +
                                  cfg_bytes + chk_sum)
                 ser.write(bytes_to_send)
+
+            # Give the receiver some time to reset
+            if line.startswith('CFG-RST'):
+                time.sleep(5)
 
     ser.close()
 
